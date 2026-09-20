@@ -39,6 +39,8 @@ jobs:
           - { target: winarm64, msvc_arch: amd64_arm64, backend: wgpu,   wgpu_asset: wgpu-windows-aarch64-msvc-release.zip }
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - uses: ilammy/msvc-dev-cmd@v1
         with:
@@ -99,6 +101,8 @@ jobs:
           - { target: macos-arm64, arch: arm64,  backend: wgpu,   wgpu_asset: wgpu-macos-aarch64-release.zip }
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: fetch wgpu-native
         if: matrix.backend == 'wgpu'
@@ -146,6 +150,8 @@ jobs:
           - { target: linux-arm64, runner: ubuntu-24.04-arm, backend: wgpu,   wgpu_asset: wgpu-linux-aarch64-release.zip }
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: prepare
         run: |
@@ -191,6 +197,8 @@ jobs:
         backend: [gles3, wgpu]
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - uses: mymindstorm/setup-emsdk@v14
 
