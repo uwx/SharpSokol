@@ -1,0 +1,59 @@
+# LLM maintained.
+# Builds every native library (via build-native.yml, called as a reusable
+# workflow) and publishes them as a GitHub Release, one zip per
+# target/backend combination (e.g. sokol-win64-d3d11.zip, containing just
+# that combo's sokol_win64_d3d11.dll).
+#
+# Triggered by pushing a tag matching v* (release tag = the pushed tag), or
+# manually via workflow_dispatch (release tag = the supplied input).
+name: Release Native Libraries
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish (e.g. v0.1.0)
+        required: true
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-native.yml
+
+  release:
+    name: publish release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: determine tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      # each artifacts/<name>/ dir (one per sokol-<target>-<backend> build
+      # artifact) becomes its own <name>.zip - one zip per target/backend
+      - name: package zips
+        run: |
+          mkdir -p release
+          for dir in artifacts/*/; do
+            name=$(basename "$dir")
+            (cd "$dir" && zip -r "$OLDPWD/release/$name.zip" .)
+          done
+          ls -la release
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          generate_release_notes: true
+          files: release/*.zip

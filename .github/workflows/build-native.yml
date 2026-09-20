@@ -22,6 +22,8 @@ on:
     paths: [native/**, sokol/**, .github/workflows/build-native.yml]
   pull_request:
     paths: [native/**, sokol/**, .github/workflows/build-native.yml]
+  # invoked by release.yml to build the binaries it packages/publishes
+  workflow_call:
 
 env:
   VULKAN_SDK_VERSION: 1.4.335.0
@@ -51,13 +53,35 @@ jobs:
         with:
           arch: ${{ matrix.msvc_arch }}
 
+      # humbletim/setup-vulkan-sdk builds Vulkan-Loader itself, but its
+      # Configure/Build steps are hardcoded to `vsdevenv x64 bash` with no
+      # architecture input - it can only ever produce an x64 loader, which
+      # fails outright (ml64.exe assembling under a contaminated ARM64 cross
+      # env) when combined with the amd64_arm64 toolset set up above for
+      # winarm64. Use it as-is for win64; for winarm64 build Vulkan-Headers +
+      # Vulkan-Loader from source instead, via the Ninja generator (a
+      # single-config generator that - unlike the default MSBuild/.vcxproj
+      # generator - just uses whatever cl.exe/link.exe/armasm64.exe is
+      # currently active on PATH, i.e. respects the amd64_arm64 env above).
       - name: prepare vulkan sdk
-        if: matrix.backend == 'vulkan'
+        if: matrix.backend == 'vulkan' && matrix.target != 'winarm64'
         uses: humbletim/setup-vulkan-sdk@main
         with:
           vulkan-query-version: ${{ env.VULKAN_SDK_VERSION }}
           vulkan-components: Vulkan-Headers, Vulkan-Loader
           vulkan-use-cache: true
+
+      - name: prepare vulkan sdk (winarm64 cross build)
+        if: matrix.backend == 'vulkan' && matrix.target == 'winarm64'
+        shell: cmd
+        run: |
+          git clone --branch vulkan-sdk-%VULKAN_SDK_VERSION% --depth 1 https://github.com/KhronosGroup/Vulkan-Headers vulkan-headers-src
+          cmake -G Ninja -S vulkan-headers-src -B vulkan-headers-src\build -DCMAKE_INSTALL_PREFIX=%CD%\vulkan-arm64 || exit /b 1
+          cmake --build vulkan-headers-src\build --target install || exit /b 1
+
+          git clone --branch vulkan-sdk-%VULKAN_SDK_VERSION% --depth 1 https://github.com/KhronosGroup/Vulkan-Loader vulkan-loader-src
+          cmake -G Ninja -S vulkan-loader-src -B vulkan-loader-src\build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=%CD%\vulkan-arm64 -DCMAKE_INSTALL_PREFIX=%CD%\vulkan-arm64 -DBUILD_TESTS=OFF || exit /b 1
+          cmake --build vulkan-loader-src\build --target install || exit /b 1
 
       - name: build
         shell: cmd
@@ -69,8 +93,15 @@ jobs:
 
           set EXTRA_INCLUDE=
           set EXTRA_LIBS=
-          if /I "${{ matrix.backend }}"=="vulkan" set EXTRA_INCLUDE=/I "%VULKAN_SDK%\Include"
-          if /I "${{ matrix.backend }}"=="vulkan" set EXTRA_LIBS="%VULKAN_SDK%\Lib\vulkan-1.lib"
+          if /I "${{ matrix.backend }}"=="vulkan" (
+            if /I "${{ matrix.target }}"=="winarm64" (
+              set EXTRA_INCLUDE=/I vulkan-arm64\include
+              set EXTRA_LIBS=vulkan-arm64\lib\vulkan-1.lib
+            ) else (
+              set EXTRA_INCLUDE=/I "%VULKAN_SDK%\Include"
+              set EXTRA_LIBS="%VULKAN_SDK%\Lib\vulkan-1.lib"
+            )
+          )
 
           cl /nologo /LD /MD /DSOKOL_DLL /D%BACKEND_DEFINE% /I sokol %EXTRA_INCLUDE% native\sokol_unity.c ^
             /Fe:sokol_${{ matrix.target }}_${{ matrix.backend }}.dll ^
