@@ -1,0 +1,211 @@
+# LLM maintained.
+# Builds native/sokol_unity.c into one linkable library per platform/backend
+# combination (see native/sokol_unity.c and the README for the full matrix).
+# Each combo is its own parallel job producing a self-contained dynamic
+# library (.dll/.so/.dylib), except wasm which produces a static .a for
+# consumers to link into their own emcc invocation.
+name: Build Native Libraries
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [native/**, sokol/**, .github/workflows/build-native.yml]
+  pull_request:
+    paths: [native/**, sokol/**, .github/workflows/build-native.yml]
+
+env:
+  VULKAN_SDK_VERSION: 1.4.335.0
+  WGPU_NATIVE_VERSION: v29.0.1.1
+
+jobs:
+  windows:
+    name: ${{ matrix.target }}-${{ matrix.backend }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: win32,    msvc_arch: x86,        backend: d3d11 }
+          - { target: win32,    msvc_arch: x86,        backend: glcore }
+          - { target: win32,    msvc_arch: x86,        backend: wgpu,   wgpu_asset: wgpu-windows-i686-msvc-release.zip }
+          - { target: win64,    msvc_arch: amd64,      backend: d3d11 }
+          - { target: win64,    msvc_arch: amd64,      backend: glcore }
+          - { target: win64,    msvc_arch: amd64,      backend: vulkan }
+          - { target: win64,    msvc_arch: amd64,      backend: wgpu,   wgpu_asset: wgpu-windows-x86_64-msvc-release.zip }
+          - { target: winarm64, msvc_arch: amd64_arm64, backend: d3d11 }
+          - { target: winarm64, msvc_arch: amd64_arm64, backend: glcore }
+          - { target: winarm64, msvc_arch: amd64_arm64, backend: vulkan }
+          - { target: winarm64, msvc_arch: amd64_arm64, backend: wgpu,   wgpu_asset: wgpu-windows-aarch64-msvc-release.zip }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc_arch }}
+
+      - name: prepare vulkan sdk
+        if: matrix.backend == 'vulkan'
+        uses: humbletim/setup-vulkan-sdk@main
+        with:
+          vulkan-query-version: ${{ env.VULKAN_SDK_VERSION }}
+          vulkan-components: Vulkan-Headers, Vulkan-Loader
+          vulkan-use-cache: true
+
+      - name: fetch wgpu-native
+        if: matrix.backend == 'wgpu'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/gfx-rs/wgpu-native/releases/download/${{ env.WGPU_NATIVE_VERSION }}/${{ matrix.wgpu_asset }}" -OutFile wgpu-native.zip
+          Expand-Archive -Path wgpu-native.zip -DestinationPath wgpu-native
+
+      - name: build
+        shell: cmd
+        run: |
+          set BACKEND_DEFINE=SOKOL_${{ matrix.backend }}
+          if /I "${{ matrix.backend }}"=="d3d11" set BACKEND_DEFINE=SOKOL_D3D11
+          if /I "${{ matrix.backend }}"=="glcore" set BACKEND_DEFINE=SOKOL_GLCORE
+          if /I "${{ matrix.backend }}"=="vulkan" set BACKEND_DEFINE=SOKOL_VULKAN
+          if /I "${{ matrix.backend }}"=="wgpu" set BACKEND_DEFINE=SOKOL_WGPU
+
+          set EXTRA_INCLUDE=
+          set EXTRA_LIBS=
+          if /I "${{ matrix.backend }}"=="vulkan" set EXTRA_INCLUDE=/I "%VULKAN_SDK%\Include"
+          if /I "${{ matrix.backend }}"=="vulkan" set EXTRA_LIBS="%VULKAN_SDK%\Lib\vulkan-1.lib"
+          if /I "${{ matrix.backend }}"=="wgpu" set EXTRA_INCLUDE=/I wgpu-native\include
+          if /I "${{ matrix.backend }}"=="wgpu" set EXTRA_LIBS=wgpu-native\lib\wgpu_native.lib d3dcompiler.lib ws2_32.lib userenv.lib bcrypt.lib ntdll.lib opengl32.lib propsys.lib runtimeobject.lib
+
+          cl /nologo /LD /MD /DSOKOL_DLL /D%BACKEND_DEFINE% /I sokol %EXTRA_INCLUDE% native\sokol_unity.c ^
+            /Fe:sokol_${{ matrix.target }}_${{ matrix.backend }}.dll ^
+            /link %EXTRA_LIBS%
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sokol-${{ matrix.target }}-${{ matrix.backend }}
+          path: sokol_${{ matrix.target }}_${{ matrix.backend }}.dll
+
+  macos:
+    name: ${{ matrix.target }}-${{ matrix.backend }}
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: macos-x64,   arch: x86_64, backend: metal }
+          - { target: macos-x64,   arch: x86_64, backend: glcore }
+          - { target: macos-x64,   arch: x86_64, backend: wgpu,   wgpu_asset: wgpu-macos-x86_64-release.zip }
+          - { target: macos-arm64, arch: arm64,  backend: metal }
+          - { target: macos-arm64, arch: arm64,  backend: glcore }
+          - { target: macos-arm64, arch: arm64,  backend: wgpu,   wgpu_asset: wgpu-macos-aarch64-release.zip }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: fetch wgpu-native
+        if: matrix.backend == 'wgpu'
+        run: |
+          curl -sL "https://github.com/gfx-rs/wgpu-native/releases/download/${WGPU_NATIVE_VERSION}/${{ matrix.wgpu_asset }}" -o wgpu-native.zip
+          unzip -q wgpu-native.zip -d wgpu-native
+
+      - name: build
+        run: |
+          BACKEND_DEFINE=SOKOL_$(echo "${{ matrix.backend }}" | tr '[:lower:]' '[:upper:]')
+          EXTRA_INCLUDE=""
+          EXTRA_LIBS="-framework QuartzCore -framework AppKit -framework AudioToolbox"
+          case "${{ matrix.backend }}" in
+            metal)  EXTRA_LIBS="$EXTRA_LIBS -framework Metal" ;;
+            glcore) EXTRA_LIBS="$EXTRA_LIBS -framework OpenGL" ;;
+            wgpu)
+              EXTRA_INCLUDE="-Iwgpu-native/include"
+              EXTRA_LIBS="$EXTRA_LIBS -framework CoreFoundation -framework Metal wgpu-native/lib/libwgpu_native.a"
+              ;;
+          esac
+
+          clang -dynamiclib -arch ${{ matrix.arch }} -D"$BACKEND_DEFINE" -Isokol $EXTRA_INCLUDE \
+            native/sokol_unity.c -o libsokol_${{ matrix.target }}_${{ matrix.backend }}.dylib \
+            $EXTRA_LIBS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sokol-${{ matrix.target }}-${{ matrix.backend }}
+          path: libsokol_${{ matrix.target }}_${{ matrix.backend }}.dylib
+
+  linux:
+    name: ${{ matrix.target }}-${{ matrix.backend }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: linux-x64,   runner: ubuntu-latest,    backend: glcore }
+          - { target: linux-x64,   runner: ubuntu-latest,    backend: gles3 }
+          - { target: linux-x64,   runner: ubuntu-latest,    backend: vulkan }
+          - { target: linux-x64,   runner: ubuntu-latest,    backend: wgpu,   wgpu_asset: wgpu-linux-x86_64-release.zip }
+          - { target: linux-arm64, runner: ubuntu-24.04-arm, backend: glcore }
+          - { target: linux-arm64, runner: ubuntu-24.04-arm, backend: gles3 }
+          - { target: linux-arm64, runner: ubuntu-24.04-arm, backend: vulkan }
+          - { target: linux-arm64, runner: ubuntu-24.04-arm, backend: wgpu,   wgpu_asset: wgpu-linux-aarch64-release.zip }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: prepare
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev libegl1-mesa-dev mesa-common-dev xorg-dev libasound-dev libvulkan-dev
+
+      - name: fetch wgpu-native
+        if: matrix.backend == 'wgpu'
+        run: |
+          curl -sL "https://github.com/gfx-rs/wgpu-native/releases/download/${WGPU_NATIVE_VERSION}/${{ matrix.wgpu_asset }}" -o wgpu-native.zip
+          unzip -q wgpu-native.zip -d wgpu-native
+
+      - name: build
+        run: |
+          BACKEND_DEFINE=SOKOL_$(echo "${{ matrix.backend }}" | tr '[:lower:]' '[:upper:]')
+          EXTRA_INCLUDE=""
+          EXTRA_LIBS="-lX11 -lXi -lXcursor -lasound -ldl -lm -lpthread"
+          case "${{ matrix.backend }}" in
+            glcore) EXTRA_LIBS="$EXTRA_LIBS -lGL" ;;
+            gles3)  EXTRA_LIBS="$EXTRA_LIBS -lEGL -lGL" ;;
+            vulkan) EXTRA_LIBS="$EXTRA_LIBS -lvulkan" ;;
+            wgpu)
+              EXTRA_INCLUDE="-Iwgpu-native/include"
+              EXTRA_LIBS="wgpu-native/lib/libwgpu_native.a $EXTRA_LIBS"
+              ;;
+          esac
+
+          cc -shared -fPIC -D"$BACKEND_DEFINE" -Isokol $EXTRA_INCLUDE \
+            native/sokol_unity.c -o libsokol_${{ matrix.target }}_${{ matrix.backend }}.so \
+            $EXTRA_LIBS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sokol-${{ matrix.target }}-${{ matrix.backend }}
+          path: libsokol_${{ matrix.target }}_${{ matrix.backend }}.so
+
+  wasm:
+    name: wasm-${{ matrix.backend }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [gles3, wgpu]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mymindstorm/setup-emsdk@v14
+
+      - name: build
+        run: |
+          BACKEND_DEFINE=SOKOL_$(echo "${{ matrix.backend }}" | tr '[:lower:]' '[:upper:]')
+          PORT_FLAG=""
+          if [ "${{ matrix.backend }}" = "wgpu" ]; then
+            PORT_FLAG="--use-port=emdawnwebgpu"
+          fi
+
+          emcc -c -D"$BACKEND_DEFINE" $PORT_FLAG -Isokol native/sokol_unity.c -o sokol_unity.o
+          emar rcs libsokol_wasm_${{ matrix.backend }}.a sokol_unity.o
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sokol-wasm-${{ matrix.backend }}
+          path: libsokol_wasm_${{ matrix.backend }}.a
