@@ -22,6 +22,19 @@
 
 #define SOKOL_IMPL
 
+// sokol_gfx.h includes <vulkan/vulkan.h> for SOKOL_VULKAN before sokol_app.h
+// gets a chance to define the platform surface macro (VK_USE_PLATFORM_*_KHR)
+// - since that header is include-guarded, defining the macro late (as
+// sokol_app.h normally does) is a no-op on the second include. Define it up
+// front so the first inclusion already has the platform surface types.
+#if defined(SOKOL_VULKAN)
+    #if defined(_WIN32)
+        #define VK_USE_PLATFORM_WIN32_KHR
+    #elif defined(__linux__) || defined(__unix__)
+        #define VK_USE_PLATFORM_XLIB_KHR
+    #endif
+#endif
+
 #include "sokol_log.h"
 #include "sokol_gfx.h"
 #include "sokol_app.h"
