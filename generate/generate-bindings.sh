@@ -58,7 +58,22 @@ while read -r class prefix file traverse; do
         -l "$LIBRARY"
         -p "$prefix"
         -i "${prefix}*"
-        -e "_*"
+        # sokol's desc structs carry uint32_t _start_canary/_end_canary fields,
+        # and sg_setup/sg_make_* assert on them (sokol_gfx.h:26498). They must be
+        # present in the binding or the struct layout is shifted by 4 bytes and
+        # every desc field lands in the wrong place. Exclude only the internal
+        # ALL-CAPS sentinels (_SG_PIXELFORMAT_NUM and friends) - a bare "_*"
+        # would take the lowercase canaries with it.
+        #
+        # _*_DEFAULT must NOT be excluded: those are real enum members holding the
+        # reserved value 0 that sokol's *_defaults() functions test against. They
+        # are declared first in their enum, so dropping them renumbers every
+        # following member down by one (SG_VERTEXSTEP_PER_VERTEX would marshal as
+        # 0, which is _SG_VERTEXSTEP_DEFAULT - an undefined D3D11_INPUT_CLASSIFICATION).
+        # _*_NUM and _*_FORCE_U32 are safe to drop: they are the trailing count and
+        # force-32-bit markers, so nothing after them can shift.
+        -e "_*_NUM"
+        -e "_*_FORCE_U32"
         -o "$OUT_DIR/$class.cs"
         -c codegen=default
         --generate macro-bindings

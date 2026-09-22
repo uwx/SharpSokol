@@ -424,6 +424,7 @@ namespace SharpSokol.Native
 
     public enum sapp_pixel_format
     {
+        _SAPP_PIXELFORMAT_DEFAULT,
         SAPP_PIXELFORMAT_NONE,
         SAPP_PIXELFORMAT_RGBA8,
         SAPP_PIXELFORMAT_SRGB8A8,
@@ -592,6 +593,7 @@ namespace SharpSokol.Native
 
     public enum sapp_composite_mode
     {
+        _SAPP_COMPOSITEMODE_DEFAULT,
         SAPP_COMPOSITEMODE_OPAQUE,
         SAPP_COMPOSITEMODE_PREMULTIPLIED,
     }

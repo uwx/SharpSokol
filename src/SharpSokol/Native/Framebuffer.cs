@@ -20,6 +20,7 @@ namespace SharpSokol.Native
 
     public enum sfb_format
     {
+        _SFB_FORMAT_DEFAULT = 0,
         SFB_FORMAT_RGBA8,
         SFB_FORMAT_PALETTE8,
     }

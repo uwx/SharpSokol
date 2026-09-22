@@ -74,6 +74,7 @@ namespace SharpSokol.Native
 
     public enum sg_pixel_format
     {
+        _SG_PIXELFORMAT_DEFAULT,
         SG_PIXELFORMAT_NONE,
         SG_PIXELFORMAT_R8,
         SG_PIXELFORMAT_R8SN,
@@ -258,6 +259,7 @@ namespace SharpSokol.Native
 
     public enum sg_index_type
     {
+        _SG_INDEXTYPE_DEFAULT,
         SG_INDEXTYPE_NONE,
         SG_INDEXTYPE_UINT16,
         SG_INDEXTYPE_UINT32,
@@ -265,6 +267,7 @@ namespace SharpSokol.Native
 
     public enum sg_image_type
     {
+        _SG_IMAGETYPE_DEFAULT,
         SG_IMAGETYPE_2D,
         SG_IMAGETYPE_CUBE,
         SG_IMAGETYPE_3D,
@@ -273,6 +276,7 @@ namespace SharpSokol.Native
 
     public enum sg_image_sample_type
     {
+        _SG_IMAGESAMPLETYPE_DEFAULT,
         SG_IMAGESAMPLETYPE_FLOAT,
         SG_IMAGESAMPLETYPE_DEPTH,
         SG_IMAGESAMPLETYPE_SINT,
@@ -282,6 +286,7 @@ namespace SharpSokol.Native
 
     public enum sg_sampler_type
     {
+        _SG_SAMPLERTYPE_DEFAULT,
         SG_SAMPLERTYPE_FILTERING,
         SG_SAMPLERTYPE_NONFILTERING,
         SG_SAMPLERTYPE_COMPARISON,
@@ -289,6 +294,7 @@ namespace SharpSokol.Native
 
     public enum sg_primitive_type
     {
+        _SG_PRIMITIVETYPE_DEFAULT,
         SG_PRIMITIVETYPE_POINTS,
         SG_PRIMITIVETYPE_LINES,
         SG_PRIMITIVETYPE_LINE_STRIP,
@@ -298,12 +304,14 @@ namespace SharpSokol.Native
 
     public enum sg_filter
     {
+        _SG_FILTER_DEFAULT,
         SG_FILTER_NEAREST,
         SG_FILTER_LINEAR,
     }
 
     public enum sg_wrap
     {
+        _SG_WRAP_DEFAULT,
         SG_WRAP_REPEAT,
         SG_WRAP_CLAMP_TO_EDGE,
         SG_WRAP_CLAMP_TO_BORDER,
@@ -312,6 +320,7 @@ namespace SharpSokol.Native
 
     public enum sg_border_color
     {
+        _SG_BORDERCOLOR_DEFAULT,
         SG_BORDERCOLOR_TRANSPARENT_BLACK,
         SG_BORDERCOLOR_OPAQUE_BLACK,
         SG_BORDERCOLOR_OPAQUE_WHITE,
@@ -352,6 +361,7 @@ namespace SharpSokol.Native
 
     public enum sg_vertex_step
     {
+        _SG_VERTEXSTEP_DEFAULT,
         SG_VERTEXSTEP_PER_VERTEX,
         SG_VERTEXSTEP_PER_INSTANCE,
     }
@@ -372,12 +382,14 @@ namespace SharpSokol.Native
 
     public enum sg_uniform_layout
     {
+        _SG_UNIFORMLAYOUT_DEFAULT,
         SG_UNIFORMLAYOUT_NATIVE,
         SG_UNIFORMLAYOUT_STD140,
     }
 
     public enum sg_cull_mode
     {
+        _SG_CULLMODE_DEFAULT,
         SG_CULLMODE_NONE,
         SG_CULLMODE_FRONT,
         SG_CULLMODE_BACK,
@@ -385,12 +397,14 @@ namespace SharpSokol.Native
 
     public enum sg_face_winding
     {
+        _SG_FACEWINDING_DEFAULT,
         SG_FACEWINDING_CCW,
         SG_FACEWINDING_CW,
     }
 
     public enum sg_compare_func
     {
+        _SG_COMPAREFUNC_DEFAULT,
         SG_COMPAREFUNC_NEVER,
         SG_COMPAREFUNC_LESS,
         SG_COMPAREFUNC_EQUAL,
@@ -403,6 +417,7 @@ namespace SharpSokol.Native
 
     public enum sg_stencil_op
     {
+        _SG_STENCILOP_DEFAULT,
         SG_STENCILOP_KEEP,
         SG_STENCILOP_ZERO,
         SG_STENCILOP_REPLACE,
@@ -415,6 +430,7 @@ namespace SharpSokol.Native
 
     public enum sg_blend_factor
     {
+        _SG_BLENDFACTOR_DEFAULT,
         SG_BLENDFACTOR_ZERO,
         SG_BLENDFACTOR_ONE,
         SG_BLENDFACTOR_SRC_COLOR,
@@ -438,6 +454,7 @@ namespace SharpSokol.Native
 
     public enum sg_blend_op
     {
+        _SG_BLENDOP_DEFAULT,
         SG_BLENDOP_ADD,
         SG_BLENDOP_SUBTRACT,
         SG_BLENDOP_REVERSE_SUBTRACT,
@@ -447,6 +464,7 @@ namespace SharpSokol.Native
 
     public enum sg_color_mask
     {
+        _SG_COLORMASK_DEFAULT = 0,
         SG_COLORMASK_NONE = 0x10,
         SG_COLORMASK_R = 0x1,
         SG_COLORMASK_G = 0x2,
@@ -467,6 +485,7 @@ namespace SharpSokol.Native
 
     public enum sg_load_action
     {
+        _SG_LOADACTION_DEFAULT,
         SG_LOADACTION_CLEAR,
         SG_LOADACTION_LOAD,
         SG_LOADACTION_DONTCARE,
@@ -474,6 +493,7 @@ namespace SharpSokol.Native
 
     public enum sg_store_action
     {
+        _SG_STOREACTION_DEFAULT,
         SG_STOREACTION_STORE,
         SG_STOREACTION_DONTCARE,
     }
@@ -642,6 +662,8 @@ namespace SharpSokol.Native
 
     public unsafe partial struct sg_pass
     {
+        [NativeTypeName("uint32_t")]
+        public uint _start_canary;
 
         [NativeTypeName("_Bool")]
         public byte compute;
@@ -654,10 +676,15 @@ namespace SharpSokol.Native
 
         [NativeTypeName("const char *")]
         public sbyte* label;
+
+        [NativeTypeName("uint32_t")]
+        public uint _end_canary;
     }
 
     public partial struct sg_bindings
     {
+        [NativeTypeName("uint32_t")]
+        public uint _start_canary;
 
         [NativeTypeName("sg_buffer[8]")]
         public _vertex_buffers_e__FixedBuffer vertex_buffers;
@@ -674,6 +701,9 @@ namespace SharpSokol.Native
 
         [NativeTypeName("sg_sampler[12]")]
         public _samplers_e__FixedBuffer samplers;
+
+        [NativeTypeName("uint32_t")]
+        public uint _end_canary;
 
         [InlineArray(8)]
         public partial struct _vertex_buffers_e__FixedBuffer
@@ -726,6 +756,8 @@ namespace SharpSokol.Native
 
     public unsafe partial struct sg_buffer_desc
     {
+        [NativeTypeName("uint32_t")]
+        public uint _start_canary;
 
         [NativeTypeName("size_t")]
         public nuint size;
@@ -748,6 +780,9 @@ namespace SharpSokol.Native
 
         [NativeTypeName("const void *")]
         public void* wgpu_buffer;
+
+        [NativeTypeName("uint32_t")]
+        public uint _end_canary;
 
         [InlineArray(2)]
         public partial struct _gl_buffers_e__FixedBuffer
@@ -894,6 +929,8 @@ namespace SharpSokol.Native
 
     public unsafe partial struct sg_image_desc
     {
+        [NativeTypeName("uint32_t")]
+        public uint _start_canary;
 
         public sg_image_type type;
 
@@ -931,6 +968,9 @@ namespace SharpSokol.Native
         [NativeTypeName("const void *")]
         public void* wgpu_texture;
 
+        [NativeTypeName("uint32_t")]
+        public uint _end_canary;
+
         [InlineArray(2)]
         public partial struct _gl_textures_e__FixedBuffer
         {
@@ -957,6 +997,8 @@ namespace SharpSokol.Native
 
     public unsafe partial struct sg_sampler_desc
     {
+        [NativeTypeName("uint32_t")]
+        public uint _start_canary;
 
         public sg_filter min_filter;
 
@@ -995,6 +1037,9 @@ namespace SharpSokol.Native
 
         [NativeTypeName("const void *")]
         public void* wgpu_sampler;
+
+        [NativeTypeName("uint32_t")]
+        public uint _end_canary;
     }
 
     public enum sg_shader_stage
@@ -1216,6 +1261,8 @@ namespace SharpSokol.Native
 
     public unsafe partial struct sg_shader_desc
     {
+        [NativeTypeName("uint32_t")]
+        public uint _start_canary;
 
         public sg_shader_function vertex_func;
 
@@ -1242,6 +1289,9 @@ namespace SharpSokol.Native
 
         [NativeTypeName("const char *")]
         public sbyte* label;
+
+        [NativeTypeName("uint32_t")]
+        public uint _end_canary;
 
         [InlineArray(16)]
         public partial struct _attrs_e__FixedBuffer
@@ -1388,6 +1438,8 @@ namespace SharpSokol.Native
 
     public unsafe partial struct sg_pipeline_desc
     {
+        [NativeTypeName("uint32_t")]
+        public uint _start_canary;
 
         [NativeTypeName("_Bool")]
         public byte compute;
@@ -1422,6 +1474,9 @@ namespace SharpSokol.Native
 
         [NativeTypeName("const char *")]
         public sbyte* label;
+
+        [NativeTypeName("uint32_t")]
+        public uint _end_canary;
 
         [InlineArray(8)]
         public partial struct _colors_e__FixedBuffer
@@ -1464,6 +1519,8 @@ namespace SharpSokol.Native
 
     public unsafe partial struct sg_view_desc
     {
+        [NativeTypeName("uint32_t")]
+        public uint _start_canary;
 
         public sg_texture_view_desc texture;
 
@@ -1479,6 +1536,9 @@ namespace SharpSokol.Native
 
         [NativeTypeName("const char *")]
         public sbyte* label;
+
+        [NativeTypeName("uint32_t")]
+        public uint _end_canary;
     }
 
     public unsafe partial struct sg_trace_hooks
@@ -2937,6 +2997,8 @@ namespace SharpSokol.Native
 
     public partial struct sg_desc
     {
+        [NativeTypeName("uint32_t")]
+        public uint _start_canary;
 
         public int buffer_pool_size;
 
@@ -2973,6 +3035,9 @@ namespace SharpSokol.Native
         public sg_logger logger;
 
         public sg_environment environment;
+
+        [NativeTypeName("uint32_t")]
+        public uint _end_canary;
     }
 
     public unsafe partial struct sg_d3d11_buffer_info
